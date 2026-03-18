@@ -22,7 +22,11 @@ function auth(req, res, next) {
 
 // Health check
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", hasCookies: !!process.env.VEGVESEN_COOKIES });
+  res.json({
+    status: "ok",
+    hasCookies: !!process.env.VEGVESEN_COOKIES,
+    cookieLength: process.env.VEGVESEN_COOKIES?.length || 0
+  });
 });
 
 // POST /scrape — fetch available slots for a station
@@ -95,8 +99,11 @@ app.get("/validate-cookies", auth, async (_req, res) => {
     res.json({ valid: false, reason: err.message });
   }
 });
-
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, '0.0.0.0', () => {
+
+console.log("VEGVESEN_COOKIES length:", process.env.VEGVESEN_COOKIES?.length || 0);
+
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`K2 Scraper running on ${PORT}`);
 });
+
