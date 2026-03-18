@@ -7,9 +7,7 @@ app.get("/", (req, res) => {
   res.send("K2 scraper is alive 🚀");
 });
 
-app.get("/health", (req, res) => {
-  res.json({ status: "ok" });
-});
+
 
 app.use(express.json({ limit: "1mb" }));
 
