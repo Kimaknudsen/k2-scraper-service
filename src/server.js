@@ -2,6 +2,15 @@ const express = require("express");
 const { scrapeStation } = require("./scraper");
 
 const app = express();
+
+app.get("/", (req, res) => {
+  res.send("K2 scraper is alive 🚀");
+});
+
+app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
+});
+
 app.use(express.json({ limit: "1mb" }));
 
 const API_SECRET = process.env.API_SECRET || "k2-dev-secret";
