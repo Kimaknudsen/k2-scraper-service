@@ -12,7 +12,7 @@ app.get("/", (req, res) => {
 app.use(express.json({ limit: "1mb" }));
 
 const API_SECRET = process.env.API_SECRET || "k2-dev-secret";
-
+console.log("ENV keys:", Object.keys(process.env).filter(k => k.includes("VEGVESEN") || k === "PORT"));
 // Auth middleware
 function auth(req, res, next) {
   const key = req.headers["x-api-key"];
