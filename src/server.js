@@ -22,10 +22,12 @@ function auth(req, res, next) {
 
 // Health check
 app.get("/health", (_req, res) => {
+  const cookies = process.env.VEGVESEN_COOKIES || "";
+
   res.json({
     status: "ok",
-    hasCookies: !!process.env.VEGVESEN_COOKIES,
-    cookieLength: process.env.VEGVESEN_COOKIES?.length || 0
+    hasCookies: cookies.length > 0,
+    cookieLength: cookies.length
   });
 });
 
@@ -64,44 +66,89 @@ app.post("/update-cookies", auth, (req, res) => {
 
 // GET /validate-cookies — test if cookies are still valid
 app.get("/validate-cookies", auth, async (_req, res) => {
-  const cookies = process.env.VEGVESEN_COOKIES;
-  if (!cookies) {
-    return res.json({ valid: false, reason: "No cookies configured" });
+  const cookies = process.env.VEGVESEN_COOKIES || "";
+
+  if (!cookies.trim()) {
+    return res.json({
+      valid: false,
+      loggedIn: false,
+      bookingAvailable: false,
+      noApplication: false,
+      reason: "No cookies configured"
+    });
   }
 
   try {
     const response = await fetch(
-      "https://www.vegvesen.no/dinside/dittforerkort/timebestilling/",
+      "https://www.vegvesen.no/dinside/dittforerkort/timebestilling/timer",
       {
         headers: {
           Cookie: cookies,
           "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125.0.0.0 Safari/537.36"
         },
-        redirect: "manual",
+        redirect: "manual"
       }
     );
 
-    // If we get redirected to login, cookies are invalid
     const location = response.headers.get("location") || "";
+
     if (response.status >= 300 && location.includes("login")) {
-      return res.json({ valid: false, reason: "Redirected to login — session expired" });
+      return res.json({
+        valid: false,
+        loggedIn: false,
+        bookingAvailable: false,
+        noApplication: false,
+        reason: "Redirected to login - session expired"
+      });
     }
 
     const html = await response.text();
-    const isLoggedIn = html.includes("idporten-bruker") || html.includes("timebestilling");
-    res.json({
+
+    const isLoggedIn =
+      html.includes("Din side") ||
+      html.includes("dittforerkort") ||
+      html.includes("timebestilling") ||
+      html.includes("Oppkjøring");
+
+    const noApplication =
+      html.includes("Ingen søknader") ||
+      html.includes("må du først levere inn en søknad") ||
+      html.includes("Søk om førerkort");
+
+    const bookingAvailable =
+      html.includes("Velg trafikkstasjon") ||
+      html.includes("Finn ledige timer") ||
+      html.includes("Ledige timer") ||
+      html.includes("timebestilling");
+
+    return res.json({
       valid: isLoggedIn,
-      reason: isLoggedIn ? "Session active" : "Could not verify session",
-      status: response.status,
+      loggedIn: isLoggedIn,
+      bookingAvailable: isLoggedIn && bookingAvailable && !noApplication,
+      noApplication: isLoggedIn && noApplication,
+      reason: !isLoggedIn
+        ? "Could not verify session"
+        : noApplication
+        ? "Logged in, but no active application"
+        : bookingAvailable
+        ? "Logged in and booking page available"
+        : "Logged in, but could not confirm booking availability",
+      status: response.status
     });
   } catch (err) {
-    res.json({ valid: false, reason: err.message });
+    return res.json({
+      valid: false,
+      loggedIn: false,
+      bookingAvailable: false,
+      noApplication: false,
+      reason: err.message
+    });
   }
 });
 const PORT = process.env.PORT || 8080;
 
-console.log("VEGVESEN_COOKIES length:", process.env.VEGVESEN_COOKIES?.length || 0);
+console.log("VEGVESEN_COOKIES length:", (process.env.VEGVESEN_COOKIES || "").length);
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`K2 Scraper running on ${PORT}`);
